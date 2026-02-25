@@ -1,0 +1,125 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup target add ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar czf ../../../limitless-${{ matrix.target }}.tar.gz limitless
+          cd ../../..
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: limitless-${{ matrix.target }}
+          path: limitless-${{ matrix.target }}.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Compute SHA256
+        id: sha
+        run: |
+          echo "aarch64_apple=$(sha256sum limitless-aarch64-apple-darwin.tar.gz | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+          echo "x86_64_apple=$(sha256sum limitless-x86_64-apple-darwin.tar.gz | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+          echo "x86_64_linux=$(sha256sum limitless-x86_64-unknown-linux-gnu.tar.gz | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            limitless-aarch64-apple-darwin.tar.gz
+            limitless-x86_64-apple-darwin.tar.gz
+            limitless-x86_64-unknown-linux-gnu.tar.gz
+
+      - name: Update Homebrew formula
+        env:
+          VERSION: ${{ github.ref_name }}
+          SHA_AARCH64_APPLE: ${{ steps.sha.outputs.aarch64_apple }}
+          SHA_X86_64_APPLE: ${{ steps.sha.outputs.x86_64_apple }}
+          SHA_X86_64_LINUX: ${{ steps.sha.outputs.x86_64_linux }}
+        run: |
+          VERSION="${VERSION#v}"
+          cat > Formula/limitless.rb << FORMULA
+          class Limitless < Formula
+            desc "CLI for Limitless Exchange — browse markets, trade, and manage positions"
+            homepage "https://github.com/limitless-labs-group/limitless-cli"
+            version "${VERSION}"
+            license "MIT"
+
+            on_macos do
+              if Hardware::CPU.arm?
+                url "https://github.com/limitless-labs-group/limitless-cli/releases/download/v#{version}/limitless-aarch64-apple-darwin.tar.gz"
+                sha256 "${SHA_AARCH64_APPLE}"
+              else
+                url "https://github.com/limitless-labs-group/limitless-cli/releases/download/v#{version}/limitless-x86_64-apple-darwin.tar.gz"
+                sha256 "${SHA_X86_64_APPLE}"
+              end
+            end
+
+            on_linux do
+              url "https://github.com/limitless-labs-group/limitless-cli/releases/download/v#{version}/limitless-x86_64-unknown-linux-gnu.tar.gz"
+              sha256 "${SHA_X86_64_LINUX}"
+            end
+
+            def install
+              bin.install "limitless"
+            end
+
+            test do
+              assert_match version.to_s, shell_output("#{bin}/limitless --version")
+            end
+          end
+          FORMULA
+          sed -i 's/^          //' Formula/limitless.rb
+
+      - name: Commit formula update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout main
+          git add Formula/limitless.rb
+          git diff --cached --quiet && exit 0
+          git commit -m "formula: update to ${GITHUB_REF_NAME}"
+          git push

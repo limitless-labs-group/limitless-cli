@@ -4,10 +4,16 @@ Command-line interface for [Limitless Exchange](https://limitless.exchange) — 
 
 ## Installation
 
+### Homebrew
+
+```bash
+brew install limitless-labs-group/limitless-cli/limitless
+```
+
 ### From source
 
 ```bash
-git clone https://github.com/your-username/limitless-cli.git
+git clone https://github.com/limitless-labs-group/limitless-cli.git
 cd limitless-cli
 cargo build --release
 cp target/release/limitless ~/.cargo/bin/
