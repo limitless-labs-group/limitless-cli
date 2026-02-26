@@ -2,6 +2,8 @@
 
 Command-line interface for [Limitless Exchange](https://limitless.exchange) — browse prediction markets, place orders, manage positions, and interact with on-chain contracts on Base.
 
+> **Limitless Exchange docs**: [docs.limitless.exchange](https://docs.limitless.exchange) &nbsp;|&nbsp; **API reference**: [limitless.mintlify.app](https://limitless.mintlify.app)
+
 ## Installation
 
 ### Homebrew
@@ -24,27 +26,29 @@ Requires Rust 1.75+.
 ## Quick Start
 
 ```bash
-# 1. Set your API key
-export LIMITLESS_API_KEY=lmts_your_key_here
+# 1. Run the interactive setup wizard (saves API key + private key to config)
+limitless setup
 
-# 2. Create or import a wallet
-limitless wallet create
-# or
-limitless wallet import 0xYOUR_PRIVATE_KEY
-
-# 3. Browse markets
+# 2. Browse markets
 limitless markets list
 limitless markets search "bitcoin"
 
-# 4. Check an orderbook
+# 3. Check an orderbook
 limitless orderbook book btc-above-100000-0228
 
-# 5. Approve tokens for a market, then trade
+# 4. Approve tokens for a market, then trade
 limitless approve set --slug btc-above-100000-0228
+
+# 5a. Place a limit order (GTC)
 limitless trading create --slug btc-above-100000-0228 --side buy --outcome yes --price 0.65 --size 100
+
+# 5b. Or place a market order (FOK) — spend 50 USDC at best price
+limitless trading create --slug btc-above-100000-0228 --side buy --outcome yes --size 50 --order-type FOK
 ```
 
-Or run `limitless setup` for a guided walkthrough.
+Get your API key from [limitless.exchange](https://limitless.exchange) → Profile → Api keys.
+
+`limitless setup` prompts for your API key and private key, then saves them to `~/.config/limitless/config.json`. Run it again anytime to update your credentials.
 
 ## Configuration
 
@@ -95,7 +99,7 @@ limitless markets list --trade-type amm             # Filter to AMM markets only
 limitless markets list --category 28                # Filter by category ID
 limitless markets list --page 2 --limit 10          # Paginate (page 2, 10 per page)
 limitless markets get <slug>                        # Full market details
-limitless markets search "bitcoin"                  # Search markets
+limitless markets search "btc"                      # Search markets
 limitless markets search "eth" --limit 5            # Search with max results
 limitless markets slugs                             # List all active slugs
 limitless markets categories                        # List categories with market counts
@@ -130,13 +134,29 @@ Press `q` or `Esc` to exit.
 ### `trading` — Place and manage orders
 
 ```bash
-# Place a limit order (GTC)
+# Place a GTC limit order (rests on book until filled or cancelled)
 limitless trading create \
   --slug <slug> \
   --side buy \
   --outcome yes \
   --price 0.65 \
   --size 100
+
+# FOK market buy — spend 50 USDC at best available price
+limitless trading create \
+  --slug <slug> \
+  --side buy \
+  --outcome yes \
+  --size 50 \
+  --order-type FOK
+
+# FOK market sell — sell 100 shares at best available price
+limitless trading create \
+  --slug <slug> \
+  --side sell \
+  --outcome yes \
+  --size 100 \
+  --order-type FOK
 
 # View and manage orders
 limitless trading orders <slug>                     # List your orders
@@ -147,7 +167,13 @@ limitless trading cancel-batch id1,id2,id3          # Cancel multiple
 limitless trading cancel-all <slug>                 # Cancel all for market
 ```
 
-Order signing uses **EIP-712** (domain: "Limitless CTF Exchange", chain ID 8453). Both API key and private key are required.
+**Order types:**
+- `GTC` (Good Till Cancelled) — default limit order. Requires `--price` (0.01–0.99). Rests on the book until filled or cancelled.
+- `FOK` (Fill or Kill) — market order. No `--price` needed. Fills immediately at best available price or cancels entirely.
+  - **Buy**: `--size` = USDC amount to spend
+  - **Sell**: `--size` = number of shares to sell
+
+Order signing uses **EIP-712** (domain: "Limitless CTF Exchange", chain ID 8453). Both API key and private key are required. See the [Limitless API docs](https://limitless.mintlify.app/api-reference/trading/create-order) for full details.
 
 ### `portfolio` — View your positions and PnL
 
@@ -234,6 +260,13 @@ limitless portfolio positions -o json               # Works after any subcommand
 | **RPC** | `https://mainnet.base.org` |
 | **USDC** | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
 | **Conditional Tokens** | `0xC9c98965297Bc527861c898329Ee280632B76e18` |
+
+## Resources
+
+- [Limitless Exchange](https://limitless.exchange) — the platform
+- [Documentation](https://docs.limitless.exchange) — guides and concepts
+- [API Reference](https://limitless.mintlify.app) — REST API endpoints
+- [TypeScript SDK](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk) — official TS SDK
 
 ## License
 

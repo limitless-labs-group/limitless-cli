@@ -3,6 +3,7 @@ pub mod markets;
 pub mod orderbook;
 pub mod portfolio;
 pub mod profiles;
+pub mod setup;
 pub mod trading;
 pub mod wallet;
 

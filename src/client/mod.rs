@@ -1,10 +1,11 @@
 pub mod markets;
 pub mod portfolio;
+pub mod profiles;
 pub mod public_portfolio;
 pub mod trading;
 
 use anyhow::{bail, Context, Result};
-use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
+use reqwest::header::{HeaderMap, HeaderValue};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
@@ -18,7 +19,9 @@ pub struct LimitlessClient {
 impl LimitlessClient {
     pub fn new(api_key: Option<&str>) -> Result<Self> {
         let mut headers = HeaderMap::new();
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        // Don't set Content-Type as default — reqwest's .json() sets it automatically
+        // for POST requests. Setting it globally breaks DELETE requests (empty body
+        // with Content-Type: application/json is rejected by the server).
         if let Some(key) = api_key {
             headers.insert(
                 "X-API-Key",

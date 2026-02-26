@@ -87,15 +87,6 @@ pub async fn execute(cli: Cli) -> Result<()> {
         Commands::Shell => {
             shell::run_shell(cli.output.clone(), cli.api_key, cli.private_key).await
         }
-        Commands::Setup => {
-            println!("Setup wizard — configure your Limitless CLI");
-            println!();
-            println!("1. Get your API key from https://limitless.exchange (profile menu -> Api keys)");
-            println!("2. Set it: export LIMITLESS_API_KEY=lmts_your_key_here");
-            println!("3. Import or create a wallet: limitless wallet create / limitless wallet import <key>");
-            println!("4. Fund your wallet with USDC on Base");
-            println!("5. Approve tokens: limitless approve set --slug <market-slug>");
-            Ok(())
-        }
+        Commands::Setup => commands::setup::execute().await,
     }
 }

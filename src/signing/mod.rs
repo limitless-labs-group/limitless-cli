@@ -61,11 +61,20 @@ fn signature_to_bytes(sig: &alloy::primitives::Signature) -> Vec<u8> {
     bytes
 }
 
+/// Generate a random salt that fits in a JavaScript-safe integer (2^53 - 1).
+/// The API expects salt as a JSON number, not a string.
 pub fn random_salt() -> U256 {
-    use alloy::primitives::FixedBytes;
-    let mut bytes = [0u8; 32];
+    let mut bytes = [0u8; 8];
     getrandom::fill(&mut bytes).expect("Failed to generate random bytes");
-    U256::from_be_bytes(FixedBytes(bytes).0)
+    // Mask to 53 bits to stay within JS Number.MAX_SAFE_INTEGER
+    let val = u64::from_be_bytes(bytes) & ((1u64 << 53) - 1);
+    U256::from(val)
+}
+
+/// Convert U256 to u64 for JSON serialization as a number.
+/// Panics if value exceeds u64::MAX (should never happen for our amounts).
+pub fn u256_to_u64(v: &U256) -> u64 {
+    v.to::<u64>()
 }
 
 pub fn parse_address(s: &str) -> Result<Address> {
@@ -78,7 +87,7 @@ pub fn parse_u256(s: &str) -> Result<U256> {
 }
 
 pub fn address_to_hex(addr: &Address) -> String {
-    format!("0x{}", hex::encode(addr.as_slice()))
+    addr.to_checksum(None)
 }
 
 pub fn u256_to_string(v: &U256) -> String {

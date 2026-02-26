@@ -81,21 +81,32 @@ where
 #[serde(rename_all = "camelCase")]
 pub struct UserOrder {
     pub id: String,
+    #[serde(default)]
     pub side: String,
+    #[serde(default)]
     pub price: String,
     #[serde(default)]
-    pub quantity: Option<String>,
-    #[serde(default)]
-    pub size: Option<String>,
     pub status: String,
+    /// API returns "type" (not "orderType") for GTC/FOK
+    #[serde(default, rename = "type")]
+    pub order_type: Option<String>,
+    #[serde(default)]
+    pub original_size: Option<String>,
+    #[serde(default)]
+    pub remaining_size: Option<String>,
+    #[serde(default)]
+    pub maker_amount: Option<String>,
+    #[serde(default)]
+    pub taker_amount: Option<String>,
     #[serde(default)]
     pub created_at: Option<String>,
+    /// API returns "token" (not "tokenId")
     #[serde(default)]
-    pub token_id: Option<String>,
+    pub token: Option<String>,
     #[serde(default)]
-    pub order_type: Option<String>,
-    #[serde(flatten)]
-    pub extra: serde_json::Value,
+    pub owner_id: Option<u64>,
+    #[serde(default)]
+    pub market_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -240,8 +251,25 @@ impl LimitlessClient {
             }
         }
 
-        self.get_with_params(&format!("/markets/{}/user-orders", slug), &params)
-            .await
+        // API may return {"orders": [...]} or a flat array [...] — handle both
+        let raw: serde_json::Value = self
+            .get_with_params(&format!("/markets/{}/user-orders", slug), &params)
+            .await?;
+
+        let orders_arr = if let Some(arr) = raw.as_array() {
+            arr.clone()
+        } else if let Some(arr) = raw.get("orders").and_then(|v| v.as_array()) {
+            arr.clone()
+        } else {
+            Vec::new()
+        };
+
+        let orders: Vec<UserOrder> = orders_arr
+            .into_iter()
+            .filter_map(|v| serde_json::from_value(v).ok())
+            .collect();
+
+        Ok(UserOrdersResponse { orders })
     }
 
     pub async fn get_locked_balance(&self, slug: &str) -> Result<LockedBalance> {
@@ -296,16 +324,16 @@ impl LimitlessClient {
         self.post("/orders", payload).await
     }
 
-    pub async fn cancel_order(&self, order_id: &str) -> Result<CancelResponse> {
+    pub async fn cancel_order(&self, order_id: &str) -> Result<serde_json::Value> {
         self.delete(&format!("/orders/{}", order_id)).await
     }
 
-    pub async fn cancel_batch(&self, order_ids: &[String]) -> Result<CancelResponse> {
+    pub async fn cancel_batch(&self, order_ids: &[String]) -> Result<serde_json::Value> {
         let body = serde_json::json!({ "orderIds": order_ids });
         self.post("/orders/cancel-batch", &body).await
     }
 
-    pub async fn cancel_all(&self, slug: &str) -> Result<CancelResponse> {
+    pub async fn cancel_all(&self, slug: &str) -> Result<serde_json::Value> {
         self.delete(&format!("/orders/all/{}", slug)).await
     }
 }

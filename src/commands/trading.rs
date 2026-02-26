@@ -1,17 +1,19 @@
+use alloy::primitives::U256;
 use anyhow::{Context, Result};
 use clap::Subcommand;
 use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 
 use crate::auth::{resolve_api_key, resolve_private_key};
 use crate::client::LimitlessClient;
-use crate::output::trading::{print_locked_balance, print_user_orders_table};
+use crate::output::trading::{print_locked_balance, print_order_created, print_user_orders_table};
 use crate::output::{print_json, OutputFormat};
 use crate::signing;
-use crate::signing::order::{build_gtc_order, Outcome, Side};
+use crate::signing::order::{build_fok_order, build_gtc_order, Outcome, Side};
 
 #[derive(Subcommand)]
 pub enum TradingCommand {
-    /// Place a GTC limit order
+    /// Place an order (GTC limit or FOK market)
     Create {
         /// Market slug
         #[arg(long)]
@@ -22,15 +24,15 @@ pub enum TradingCommand {
         /// Outcome: yes or no
         #[arg(long)]
         outcome: String,
-        /// Price (0.01 to 0.99)
+        /// Price (0.01 to 0.99) — required for GTC, ignored for FOK
         #[arg(long)]
-        price: Decimal,
-        /// Size in shares (raw units, e.g. 100 for 100 shares)
+        price: Option<Decimal>,
+        /// For GTC: number of shares. For FOK buy: USDC to spend. For FOK sell: shares to sell.
         #[arg(long)]
         size: Decimal,
-        /// Fee rate in basis points (default: 0)
-        #[arg(long, default_value = "0")]
-        fee_rate_bps: u64,
+        /// Order type: GTC (default) or FOK
+        #[arg(long, default_value = "GTC")]
+        order_type: String,
         /// Nonce (default: 0)
         #[arg(long, default_value = "0")]
         nonce: u64,
@@ -82,16 +84,47 @@ pub async fn execute(
             outcome,
             price,
             size,
-            fee_rate_bps,
+            order_type,
             nonce,
         } => {
             let api_key = resolve_api_key(api_key_flag)?;
             let pk_str = resolve_private_key(private_key_flag)?;
             let client = LimitlessClient::new(Some(&api_key))?;
 
+            // Validate order type
+            let order_type_upper = order_type.to_uppercase();
+            let is_fok = order_type_upper == "FOK";
+            if order_type_upper != "GTC" && !is_fok {
+                anyhow::bail!("Invalid order type: {}. Use 'GTC' or 'FOK'.", order_type);
+            }
+
+            // GTC requires price
+            if !is_fok && price.is_none() {
+                anyhow::bail!("--price is required for GTC orders. Use --order-type FOK for market orders without a price.");
+            }
+
             // Parse side and outcome
             let side: Side = side.parse()?;
             let outcome: Outcome = outcome.parse()?;
+
+            // Create signer and derive address
+            let pk = pk_str.strip_prefix("0x").unwrap_or(&pk_str);
+            let bytes = hex::decode(pk).context("Invalid hex in private key")?;
+            let signer = alloy::signers::local::PrivateKeySigner::from_slice(&bytes)
+                .context("Invalid private key")?;
+            let maker = signer.address();
+
+            // Fetch profile to get ownerId and feeRateBps
+            let profile = client
+                .get_profile(&signing::address_to_hex(&maker))
+                .await
+                .context("Failed to fetch user profile. Make sure your API key and wallet address are linked.")?;
+            let owner_id = profile.id;
+            let fee_rate_bps = profile
+                .rank
+                .as_ref()
+                .and_then(|r| r.fee_rate_bps)
+                .unwrap_or(300);
 
             // Fetch market to get venue and token IDs
             let market = client.get_market(slug).await?;
@@ -113,50 +146,76 @@ pub async fn execute(
                 .ok_or_else(|| anyhow::anyhow!("Could not find token ID for outcome {:?}", outcome))?;
             let token_id = signing::parse_u256(token_id_str)?;
 
-            // Create signer
-            let pk = pk_str.strip_prefix("0x").unwrap_or(&pk_str);
-            let bytes = hex::decode(pk).context("Invalid hex in private key")?;
-            let signer =
-                alloy::signers::local::PrivateKeySigner::from_slice(&bytes)
-                    .context("Invalid private key")?;
-            let maker = signer.address();
+            // Build order — GTC and FOK have different amount semantics
+            let (order, order_price) = if is_fok {
+                // FOK: makerAmount = size * 1e6, takerAmount = 1
+                // For BUY: size = USDC to spend
+                // For SELL: size = shares to sell
+                let scale = Decimal::from(1_000_000u64);
+                let maker_amount_scaled = (*size * scale)
+                    .to_u128()
+                    .ok_or_else(|| anyhow::anyhow!("makerAmount overflow"))?;
 
-            // Build order
-            let order = build_gtc_order(
-                maker,
-                token_id,
-                side,
-                *price,
-                *size,
-                *fee_rate_bps,
-                *nonce,
-            )?;
+                let order = build_fok_order(
+                    maker,
+                    token_id,
+                    side,
+                    U256::from(maker_amount_scaled),
+                    U256::from(1u64), // takerAmount is always 1 for FOK
+                    fee_rate_bps,
+                    *nonce,
+                );
+                (order, None) // No price for FOK
+            } else {
+                // GTC: standard price * size computation
+                let p = price.unwrap(); // safe: validated above
+                let order = build_gtc_order(
+                    maker,
+                    token_id,
+                    side,
+                    p,
+                    *size,
+                    fee_rate_bps,
+                    *nonce,
+                )?;
+                let price_f64 = p.to_string().parse::<f64>().unwrap_or(0.0);
+                (order, Some(price_f64))
+            };
 
             // Sign order
             let venue_exchange = signing::parse_address(&venue.exchange)?;
             let signature = signing::sign_order(&signer, &order, venue_exchange).await?;
 
-            // Build payload
-            let order_payload = serde_json::json!({
-                "salt": signing::u256_to_string(&order.salt),
+            // Build order payload with NUMERIC fields
+            let mut order_payload = serde_json::json!({
+                "salt": signing::u256_to_u64(&order.salt),
                 "maker": signing::address_to_hex(&order.maker),
                 "signer": signing::address_to_hex(&order.signer),
                 "taker": signing::address_to_hex(&order.taker),
-                "tokenId": signing::u256_to_string(&order.tokenId),
-                "makerAmount": signing::u256_to_string(&order.makerAmount),
-                "takerAmount": signing::u256_to_string(&order.takerAmount),
-                "expiration": signing::u256_to_string(&order.expiration),
-                "nonce": signing::u256_to_string(&order.nonce),
-                "feeRateBps": signing::u256_to_string(&order.feeRateBps),
-                "side": order.side.to_string(),
-                "signatureType": order.signatureType.to_string(),
+                "tokenId": token_id_str,
+                "makerAmount": signing::u256_to_u64(&order.makerAmount),
+                "takerAmount": signing::u256_to_u64(&order.takerAmount),
+                "expiration": signing::u256_to_u64(&order.expiration).to_string(),
+                "nonce": signing::u256_to_u64(&order.nonce),
+                "feeRateBps": signing::u256_to_u64(&order.feeRateBps),
+                "side": order.side as u64,
+                "signatureType": order.signatureType as u64,
                 "signature": signing::signature_hex(&signature),
             });
 
+            // GTC orders include price; FOK orders do not
+            if let Some(p) = order_price {
+                order_payload
+                    .as_object_mut()
+                    .unwrap()
+                    .insert("price".to_string(), serde_json::json!(p));
+            }
+
             let create_payload = serde_json::json!({
                 "order": order_payload,
-                "orderType": "GTC",
+                "orderType": order_type_upper,
                 "marketSlug": slug,
+                "ownerId": owner_id,
             });
 
             // Submit order
@@ -164,10 +223,7 @@ pub async fn execute(
 
             match output {
                 OutputFormat::Json => print_json(&resp)?,
-                OutputFormat::Table => {
-                    println!("Order submitted successfully!");
-                    println!("{}", serde_json::to_string_pretty(&resp)?);
-                }
+                OutputFormat::Table => print_order_created(&resp),
             }
         }
         TradingCommand::Orders {
