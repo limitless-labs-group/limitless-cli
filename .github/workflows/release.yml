@@ -73,15 +73,16 @@ jobs:
             limitless-x86_64-apple-darwin.tar.gz
             limitless-x86_64-unknown-linux-gnu.tar.gz
 
-      - name: Update Homebrew formula
+      - name: Update Homebrew tap
         env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           VERSION: ${{ github.ref_name }}
           SHA_AARCH64_APPLE: ${{ steps.sha.outputs.aarch64_apple }}
           SHA_X86_64_APPLE: ${{ steps.sha.outputs.x86_64_apple }}
           SHA_X86_64_LINUX: ${{ steps.sha.outputs.x86_64_linux }}
         run: |
           VERSION="${VERSION#v}"
-          cat > Formula/limitless.rb << FORMULA
+          cat > /tmp/limitless.rb << FORMULA
           class Limitless < Formula
             desc "CLI for Limitless Exchange — browse markets, trade, and manage positions"
             homepage "https://github.com/limitless-labs-group/limitless-cli"
@@ -112,14 +113,16 @@ jobs:
             end
           end
           FORMULA
-          sed -i 's/^          //' Formula/limitless.rb
+          sed -i 's/^          //' /tmp/limitless.rb
 
-      - name: Commit formula update
-        run: |
+          # Clone tap repo and push updated formula
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/limitless-labs-group/homebrew-limitless-cli.git" /tmp/tap
+          mkdir -p /tmp/tap/Formula
+          cp /tmp/limitless.rb /tmp/tap/Formula/limitless.rb
+          cd /tmp/tap
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout main
           git add Formula/limitless.rb
           git diff --cached --quiet && exit 0
-          git commit -m "formula: update to ${GITHUB_REF_NAME}"
+          git commit -m "limitless ${VERSION}"
           git push
