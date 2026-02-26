@@ -6,6 +6,12 @@ Command-line interface for [Limitless Exchange](https://limitless.exchange) — 
 
 ## Installation
 
+### Homebrew
+
+```bash
+brew install limitless-labs-group/limitless-cli/limitless
+```
+
 ### From source
 
 ```bash
