@@ -1,4 +1,5 @@
 use anyhow::Result;
+use colored::Colorize;
 
 use crate::output::portfolio::{print_pnl_summary, print_positions_table};
 
@@ -19,8 +20,8 @@ pub fn print_public_volume(data: &serde_json::Value) -> Result<()> {
         return Ok(());
     }
 
-    println!("Traded Volume");
-    println!("─────────────────────────");
+    println!("{}", "Traded Volume".cyan().bold());
+    println!("{}", "─────────────────────────".dimmed());
 
     if let Some(obj) = data.as_object() {
         for (key, value) in obj {

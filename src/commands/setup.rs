@@ -1,29 +1,27 @@
 use anyhow::{Context, Result};
+use colored::Colorize;
 use std::io::{self, Write};
 
 use crate::config::{config_path, load_config, save_config};
 
 pub async fn execute() -> Result<()> {
-    println!("┌─────────────────────────────────────────┐");
-    println!("│  Limitless CLI — Setup Wizard            │");
-    println!("└─────────────────────────────────────────┘");
+    println!();
+    println!("  {}",  "Limitless CLI — Setup Wizard".cyan().bold());
+    println!("  {}", "─".repeat(35).dimmed());
     println!();
 
-    // Load existing config or start fresh
     let mut config = load_config().unwrap_or_default();
     let is_update = config.api_key.is_some() || config.private_key.is_some();
 
     if is_update {
-        println!("  Existing config found at {}", config_path().display());
+        println!("  Existing config found at {}", config_path().display().to_string().dimmed());
         println!("  Press Enter to keep current value, or type a new one.");
         println!();
     } else {
-        println!("  Get your API key from https://limitless.exchange");
-        println!("  (Profile menu → Api keys)");
+        println!("  Get your API key from {}", "https://limitless.exchange".underline());
+        println!("  {}", "(Profile menu → Api keys)".dimmed());
         println!();
     }
-
-    // ── API Key ──────────────────────────────────────────────────────
 
     let current_api = config
         .api_key
@@ -31,12 +29,10 @@ pub async fn execute() -> Result<()> {
         .map(mask_key)
         .unwrap_or_else(|| "(not set)".to_string());
 
-    let api_key_input = prompt(&format!("API key [{}]", current_api))?;
+    let api_key_input = prompt(&format!("API key [{}]", current_api.dimmed()))?;
     if !api_key_input.is_empty() {
         config.api_key = Some(api_key_input);
     }
-
-    // ── Private Key ──────────────────────────────────────────────────
 
     let current_pk = config
         .private_key
@@ -44,16 +40,15 @@ pub async fn execute() -> Result<()> {
         .map(mask_key)
         .unwrap_or_else(|| "(not set)".to_string());
 
-    let pk_input = prompt(&format!("Private key [{}]", current_pk))?;
+    let pk_input = prompt(&format!("Private key [{}]", current_pk.dimmed()))?;
     if !pk_input.is_empty() {
         let pk = pk_input.trim().to_string();
-        // Basic validation: should be 0x-prefixed hex, 66 chars
         if !pk.starts_with("0x") || pk.len() != 66 {
             println!();
-            println!("  ⚠ Warning: private key should be 0x-prefixed, 64 hex chars (66 total).");
-            let confirm = prompt("  Save anyway? (y/N)")?;
+            println!("  {}", "⚠ Warning: private key should be 0x-prefixed, 64 hex chars (66 total).".yellow());
+            let confirm = prompt(&format!("  Save anyway? {}", "(y/N)".dimmed()))?;
             if confirm.to_lowercase() != "y" {
-                println!("  Skipped private key.");
+                println!("  {}", "Skipped private key.".dimmed());
             } else {
                 config.private_key = Some(pk);
             }
@@ -62,31 +57,28 @@ pub async fn execute() -> Result<()> {
         }
     }
 
-    // ── Save ─────────────────────────────────────────────────────────
-
     save_config(&config).context("Failed to save config")?;
 
     println!();
-    println!("  ✓ Config saved to {}", config_path().display());
+    println!("  {} Config saved to {}", "✓".green(), config_path().display().to_string().dimmed());
     println!();
 
-    // Show summary
     let has_api = config.api_key.is_some();
     let has_pk = config.private_key.is_some();
 
-    println!("  API key:     {}", if has_api { "configured" } else { "not set" });
-    println!("  Private key: {}", if has_pk { "configured" } else { "not set" });
+    println!("  {}  {}", "API key:".cyan(), if has_api { "configured".green().to_string() } else { "not set".red().to_string() });
+    println!("  {}  {}", "Private key:".cyan(), if has_pk { "configured".green().to_string() } else { "not set".red().to_string() });
     println!();
 
     if has_api {
-        println!("  You can now run:  limitless markets list");
-        println!("                    limitless portfolio positions");
+        println!("  You can now run:  {}", "limitless markets list".bold());
+        println!("                    {}", "limitless portfolio positions".bold());
     }
     if has_api && has_pk {
-        println!("                    limitless trading create --slug <slug> ...");
+        println!("                    {}", "limitless trading create --slug <slug> ...".bold());
     }
     if !has_api {
-        println!("  Run `limitless setup` again to add your API key.");
+        println!("  Run {} again to add your API key.", "limitless setup".bold());
     }
 
     Ok(())

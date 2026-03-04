@@ -47,8 +47,9 @@ pub async fn run_shell(
                     Ok(cli) => {
                         if matches!(
                             cli.command,
-                            crate::commands::Commands::Shell
-                                | crate::commands::Commands::Setup
+                            Some(crate::commands::Commands::Shell)
+                                | Some(crate::commands::Commands::Setup)
+                                | None
                         ) {
                             println!("Cannot run this command inside the shell.");
                             continue;

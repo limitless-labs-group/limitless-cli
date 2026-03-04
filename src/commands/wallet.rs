@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use clap::Subcommand;
+use colored::Colorize;
 
 use crate::auth::resolve_private_key;
 use crate::config::{load_config, save_config, Config};
@@ -47,12 +48,12 @@ pub async fn execute(
                     }))?;
                 }
                 OutputFormat::Table => {
-                    println!("New wallet created!");
-                    println!("Address:     {}", address);
-                    println!("Private Key: {}", pk_hex);
+                    println!("{}", crate::output::success("New wallet created!"));
+                    println!("{}  {}", "Address:".cyan(), address);
+                    println!("{}  {}", "Private Key:".cyan(), pk_hex);
                     println!();
-                    println!("WARNING: Save your private key securely. It will not be shown again.");
-                    println!("Key saved to config file.");
+                    println!("{}", "WARNING: Save your private key securely. It will not be shown again.".yellow().bold());
+                    println!("{}", "Key saved to config file.".dimmed());
                 }
             }
         }
@@ -82,9 +83,9 @@ pub async fn execute(
                     }))?;
                 }
                 OutputFormat::Table => {
-                    println!("Wallet imported!");
-                    println!("Address: {}", address);
-                    println!("Key saved to config file.");
+                    println!("{}", crate::output::success("Wallet imported!"));
+                    println!("{}  {}", "Address:".cyan(), address);
+                    println!("{}", "Key saved to config file.".dimmed());
                 }
             }
         }
@@ -110,19 +111,21 @@ pub async fn execute(
                     crate::output::print_json(&data)?;
                 }
                 OutputFormat::Table => {
-                    println!("Address: {}", address);
+                    println!("{}  {}", "Address:".cyan(), address);
                     if matches!(command, WalletCommand::Show) {
                         if let Some(config) = load_config() {
                             println!(
-                                "Config:  {}",
-                                crate::config::config_path().display()
+                                "{}   {}",
+                                "Config:".cyan(),
+                                crate::config::config_path().display().to_string().dimmed()
                             );
                             println!(
-                                "API Key: {}",
+                                "{}  {}",
+                                "API Key:".cyan(),
                                 if config.api_key.is_some() {
-                                    "configured"
+                                    "configured".green().to_string()
                                 } else {
-                                    "not set"
+                                    "not set".red().to_string()
                                 }
                             );
                         }
@@ -138,7 +141,7 @@ pub async fn execute(
                     crate::output::print_json(&serde_json::json!({"reset": true}))?;
                 }
                 OutputFormat::Table => {
-                    println!("Wallet configuration reset.");
+                    println!("{}", crate::output::success("Wallet configuration reset."));
                 }
             }
         }

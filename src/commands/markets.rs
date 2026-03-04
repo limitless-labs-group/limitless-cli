@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::{Subcommand, ValueEnum};
+use colored::Colorize;
 
 use crate::client::LimitlessClient;
 use crate::output::markets::{
@@ -38,8 +39,8 @@ pub enum MarketsCommand {
         /// Results per page (max 25)
         #[arg(short, long, default_value = "20")]
         limit: Option<u32>,
-        /// Sort by field
-        #[arg(short, long, value_enum)]
+        /// Sort by field (default: trending)
+        #[arg(short, long, value_enum, default_value = "trending")]
         sort_by: Option<SortBy>,
         /// Filter by trade type (clob, amm, group)
         #[arg(short, long)]
@@ -101,20 +102,31 @@ pub async fn execute(
                     let limit_val = limit.unwrap_or(20);
                     let current_page = page.unwrap_or(0);
                     let showing = resp.data.len();
+                    println!();
                     if let Some(total) = resp.total_markets_count {
                         let total_pages = (total + limit_val - 1) / limit_val;
                         println!(
-                            "\nPage {} of {} ({} markets total, showing {})",
-                            current_page + 1,
-                            total_pages,
-                            total,
-                            showing
+                            "{} {}/{} ({} markets, showing {})",
+                            "Page".dimmed(),
+                            (current_page + 1).to_string().bold(),
+                            total_pages.to_string().bold(),
+                            total.to_string().bold(),
+                            showing.to_string().dimmed(),
                         );
                     } else {
-                        println!("\nShowing {} markets (page {})", showing, current_page + 1);
+                        println!(
+                            "{} {} markets {}",
+                            "Showing".dimmed(),
+                            showing.to_string().bold(),
+                            format!("(page {})", current_page + 1).dimmed(),
+                        );
                     }
                     if resp.next_page.is_some() {
-                        println!("Next: --page {}", current_page + 1);
+                        println!(
+                            "{} {}",
+                            "Next:".cyan(),
+                            format!("limitless markets list --page {}", current_page + 1).bold(),
+                        );
                     }
                 }
             }
@@ -133,7 +145,7 @@ pub async fn execute(
                 OutputFormat::Table => {
                     print_markets_table(&resp.markets);
                     if let Some(total) = resp.total_markets_count {
-                        println!("Total results: {}", total);
+                        println!("{} {}", "Total results:".cyan(), total.to_string().bold());
                     }
                 }
             }

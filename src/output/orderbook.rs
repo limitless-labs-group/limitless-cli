@@ -1,3 +1,4 @@
+use colored::Colorize;
 use rust_decimal::Decimal;
 use tabled::Tabled;
 
@@ -55,10 +56,10 @@ struct OrderRow {
 
 pub fn print_orderbook(book: &OrderbookResponse) {
     if let Some(mid) = book.adjusted_midpoint {
-        println!("Midpoint: ${:.4}", mid);
+        println!("{} ${:.4}", "Midpoint:".cyan(), mid);
     }
     if let Some(last) = book.last_trade_price {
-        println!("Last Trade: ${:.4}", last);
+        println!("{} ${:.4}", "Last Trade:".cyan(), last);
     }
 
     let spread = if !book.asks.is_empty() && !book.bids.is_empty() {
@@ -67,28 +68,28 @@ pub fn print_orderbook(book: &OrderbookResponse) {
         None
     };
     if let Some(s) = spread {
-        println!("Spread: {:.4}", s);
+        println!("{} {:.4}", "Spread:".cyan(), s);
     }
     println!();
 
-    println!("=== BIDS (Buy) ===");
+    println!("{}", "═══ BIDS (Buy) ═══".green().bold());
     let bid_rows: Vec<OrderRow> = book
         .bids
         .iter()
         .map(|l| OrderRow {
-            price: format!("${:.4}", l.price),
+            price: format!("${:.4}", l.price).green().to_string(),
             size: format_size(l.size),
         })
         .collect();
     print_table(&bid_rows);
 
     println!();
-    println!("=== ASKS (Sell) ===");
+    println!("{}", "═══ ASKS (Sell) ═══".red().bold());
     let ask_rows: Vec<OrderRow> = book
         .asks
         .iter()
         .map(|l| OrderRow {
-            price: format!("${:.4}", l.price),
+            price: format!("${:.4}", l.price).red().to_string(),
             size: format_size(l.size),
         })
         .collect();
@@ -103,51 +104,60 @@ pub fn print_price(book: &OrderbookResponse) {
         (Some(bid), Some(ask)) => {
             let spread = ask.price - bid.price;
             println!(
-                "Bid: ${:.4}  ({} shares)   Ask: ${:.4}  ({} shares)   Spread: {:.4}",
-                bid.price,
+                "{} {}  ({} shares)   {} {}  ({} shares)   {} {:.4}",
+                "Bid:".green(),
+                format!("${:.4}", bid.price).green(),
                 format_size(bid.size),
-                ask.price,
+                "Ask:".red(),
+                format!("${:.4}", ask.price).red(),
                 format_size(ask.size),
+                "Spread:".cyan(),
                 spread,
             );
         }
         (Some(bid), None) => {
             println!(
-                "Bid: ${:.4}  ({} shares)   Ask: -",
-                bid.price,
+                "{} {}  ({} shares)   {} {}",
+                "Bid:".green(),
+                format!("${:.4}", bid.price).green(),
                 format_size(bid.size),
+                "Ask:".red(),
+                "-".dimmed(),
             );
         }
         (None, Some(ask)) => {
             println!(
-                "Bid: -   Ask: ${:.4}  ({} shares)",
-                ask.price,
+                "{} {}   {} {}  ({} shares)",
+                "Bid:".green(),
+                "-".dimmed(),
+                "Ask:".red(),
+                format!("${:.4}", ask.price).red(),
                 format_size(ask.size),
             );
         }
         (None, None) => {
-            println!("No bids or asks available.");
+            println!("{}", "No bids or asks available.".dimmed());
         }
     }
 }
 
 pub fn print_midpoint(book: &OrderbookResponse) {
     if let Some(mid) = book.adjusted_midpoint {
-        println!("${:.4}", mid);
+        println!("{} ${:.4}", "Midpoint:".cyan(), mid);
     } else if !book.asks.is_empty() && !book.bids.is_empty() {
         let mid = (book.asks[0].price + book.bids[0].price) / 2.0;
-        println!("${:.4}", mid);
+        println!("{} ${:.4}", "Midpoint:".cyan(), mid);
     } else {
-        println!("Cannot calculate midpoint.");
+        println!("{}", "Cannot calculate midpoint.".dimmed());
     }
 }
 
 pub fn print_spread(book: &OrderbookResponse) {
     if !book.asks.is_empty() && !book.bids.is_empty() {
         let spread = book.asks[0].price - book.bids[0].price;
-        println!("{:.4}", spread);
+        println!("{} {:.4}", "Spread:".cyan(), spread);
     } else {
-        println!("Cannot calculate spread.");
+        println!("{}", "Cannot calculate spread.".dimmed());
     }
 }
 
@@ -191,11 +201,11 @@ pub fn print_historical_prices(series: &[HistoricalPriceSeries]) {
     }
 
     if rows.is_empty() {
-        println!("No price data points.");
+        println!("{}", "No price data points.".dimmed());
         return;
     }
 
-    println!("{} data point(s):", rows.len());
+    println!("{} data point(s):", rows.len().to_string().bold());
     println!();
     print_table(&rows);
 }
@@ -203,7 +213,7 @@ pub fn print_historical_prices(series: &[HistoricalPriceSeries]) {
 /// Format market feed events as a table
 pub fn print_events_table(resp: &MarketEventsResponse) {
     if resp.events.is_empty() {
-        println!("No events.");
+        println!("{}", "No events.".dimmed());
         return;
     }
 
@@ -228,8 +238,8 @@ pub fn print_events_table(resp: &MarketEventsResponse) {
         .iter()
         .map(|e| {
             let side = match e.side {
-                Some(0) => "BUY".to_string(),
-                Some(1) => "SELL".to_string(),
+                Some(0) => "BUY".green().to_string(),
+                Some(1) => "SELL".red().to_string(),
                 _ => "-".to_string(),
             };
 

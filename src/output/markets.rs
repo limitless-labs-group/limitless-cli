@@ -1,3 +1,4 @@
+use colored::Colorize;
 use rust_decimal::Decimal;
 use tabled::Tabled;
 
@@ -6,18 +7,14 @@ use crate::output::{format_decimal, print_table, truncate};
 
 #[derive(Tabled)]
 struct MarketRow {
-    #[tabled(rename = "Slug")]
-    slug: String,
-    #[tabled(rename = "Title")]
+    #[tabled(rename = "Question")]
     title: String,
-    #[tabled(rename = "Type")]
-    trade_type: String,
-    #[tabled(rename = "YES")]
+    #[tabled(rename = "Price (Yes)")]
     yes_price: String,
-    #[tabled(rename = "NO")]
-    no_price: String,
     #[tabled(rename = "Volume")]
     volume: String,
+    #[tabled(rename = "Status")]
+    status: String,
     #[tabled(rename = "Deadline")]
     deadline: String,
 }
@@ -29,26 +26,47 @@ fn format_price(price: Option<f64>) -> String {
     }
 }
 
-fn format_volume(market: &Market) -> String {
+fn format_price_cents(price: Option<f64>, is_amm: bool) -> String {
+    match price {
+        Some(p) => {
+            let normalized = if is_amm && p > 1.0 { p / 100.0 } else { p };
+            let cents = normalized * 100.0;
+            format!("{:.2}¢", cents)
+        }
+        None => "—".to_string(),
+    }
+}
+
+fn format_volume_usd(market: &Market) -> String {
     match market.display_volume() {
-        Some(v) => format_decimal(v),
-        None => "-".to_string(),
+        Some(v) => format!("${}", format_decimal(v)),
+        None => "—".to_string(),
+    }
+}
+
+fn format_status(market: &Market) -> String {
+    match market.status.as_deref() {
+        Some("FUNDED") => "Active".to_string(),
+        Some("RESOLVED") => "Resolved".to_string(),
+        Some(s) => s.to_string(),
+        None => "—".to_string(),
     }
 }
 
 pub fn print_markets_table(markets: &[Market]) {
     let rows: Vec<MarketRow> = markets
         .iter()
-        .map(|m| MarketRow {
-            slug: m.slug.clone(),
-            title: truncate(&m.title, 50),
-            trade_type: m.trade_type.clone().unwrap_or_else(|| "-".to_string()),
-            yes_price: format_price(m.yes_price()),
-            no_price: format_price(m.no_price()),
-            volume: format_volume(m),
-            deadline: m
-                .display_deadline()
-                .unwrap_or_else(|| "-".to_string()),
+        .map(|m| {
+            let is_amm = m.trade_type.as_deref() == Some("amm");
+            MarketRow {
+                title: truncate(&m.title, 60),
+                yes_price: format_price_cents(m.yes_price(), is_amm),
+                volume: format_volume_usd(m),
+                status: format_status(m),
+                deadline: m
+                    .display_deadline()
+                    .unwrap_or_else(|| "—".to_string()),
+            }
         })
         .collect();
     print_table(&rows);
@@ -128,6 +146,16 @@ pub fn print_market_detail(market: &Market) {
     if let Some(ct) = &market.collateral_token {
         rows.push(("Collateral", format!("{} ({})", ct.symbol, ct.address)));
     }
+    if let Some(cats) = &market.categories {
+        if !cats.is_empty() {
+            rows.push(("Categories", cats.join(", ")));
+        }
+    }
+    if let Some(tags) = &market.tags {
+        if !tags.is_empty() {
+            rows.push(("Tags", tags.join(", ")));
+        }
+    }
     if let Some(ca) = &market.created_at {
         rows.push(("Created", ca.clone()));
     }
@@ -191,6 +219,6 @@ pub fn print_categories_table(categories: &[CategoryWithCount], total: Option<u3
     crate::output::print_table(&rows);
 
     if let Some(total) = total {
-        println!("Total markets: {}", total);
+        println!("{} {}", "Total markets:".cyan(), total.to_string().bold());
     }
 }

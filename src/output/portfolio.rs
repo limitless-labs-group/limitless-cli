@@ -1,4 +1,5 @@
 use anyhow::Result;
+use colored::Colorize;
 use rust_decimal::Decimal;
 use tabled::Tabled;
 
@@ -118,14 +119,14 @@ pub fn print_positions_table(data: &serde_json::Value, status_filter: &str) -> R
 
                 rows.push(PositionRow {
                     market: truncate_title(title, 45),
-                    status: status.to_string(),
-                    side: "YES".to_string(),
+                    status: color_status(status),
+                    side: "YES".green().to_string(),
                     shares: raw_to_shares(yes_balance),
                     avg_price: format_fill_price(fill_price),
                     market_value: raw_to_usdc(mkt_value),
                     cost: raw_to_usdc(cost),
-                    pnl: raw_to_usdc(&total_pnl.to_string()),
-                    deadline: format_deadline_with_time(deadline),
+                    pnl: color_pnl_raw(total_pnl),
+                    deadline: format_deadline_with_time(deadline).dimmed().to_string(),
                 });
             }
 
@@ -141,14 +142,14 @@ pub fn print_positions_table(data: &serde_json::Value, status_filter: &str) -> R
 
                 rows.push(PositionRow {
                     market: truncate_title(title, 45),
-                    status: status.to_string(),
-                    side: "NO".to_string(),
+                    status: color_status(status),
+                    side: "NO".red().to_string(),
                     shares: raw_to_shares(no_balance),
                     avg_price: format_fill_price(fill_price),
                     market_value: raw_to_usdc(mkt_value),
                     cost: raw_to_usdc(cost),
-                    pnl: raw_to_usdc(&total_pnl.to_string()),
-                    deadline: format_deadline_with_time(deadline),
+                    pnl: color_pnl_raw(total_pnl),
+                    deadline: format_deadline_with_time(deadline).dimmed().to_string(),
                 });
             }
         }
@@ -195,17 +196,17 @@ pub fn print_positions_table(data: &serde_json::Value, status_filter: &str) -> R
 
     if rows.is_empty() {
         if status_filter != "all" {
-            println!("No positions matching status '{}'.", status_filter);
+            println!("{}", format!("No positions matching status '{}'.", status_filter).dimmed());
         } else {
-            println!("No open positions.");
+            println!("{}", "No open positions.".dimmed());
         }
     } else {
         if let Some(points) = data.get("points").and_then(|v| v.as_str()) {
             if points != "0" && points != "0.00000000" {
-                println!("Points: {}", points);
+                println!("{} {}", "Points:".cyan(), points.bold());
             }
         }
-        println!("{} position(s):", rows.len());
+        println!("{} position(s):", rows.len().to_string().bold());
         println!();
         crate::output::print_table(&rows);
     }
@@ -240,12 +241,18 @@ pub fn print_pnl_summary(data: &serde_json::Value) -> Result<()> {
         .and_then(|v| v.as_str())
         .unwrap_or("0");
 
-    println!("PnL Summary ({})", timeframe);
-    println!("─────────────────────────");
-    println!("Current Value:  ${:.2}", current_value);
-    println!("Previous Value: ${:.2}", previous_value);
-    println!("Change:         {:.2}%", pct_change);
-    println!("Realised PnL:   {} USDC", realised_formatted);
+    println!("{} ({})", "PnL Summary".cyan().bold(), timeframe);
+    println!("{}", "─────────────────────────".dimmed());
+    println!("{}  ${:.2}", "Current Value:".cyan(), current_value);
+    println!("{} ${:.2}", "Previous Value:".cyan(), previous_value);
+    let change_str = format!("{:.2}%", pct_change);
+    let change_colored = crate::output::pnl_color(pct_change, &change_str);
+    println!("{}         {}", "Change:".cyan(), change_colored);
+    let pnl_colored = crate::output::pnl_color(
+        realised_formatted.parse::<f64>().unwrap_or(0.0),
+        &format!("{} USDC", realised_formatted),
+    );
+    println!("{}   {}", "Realised PnL:".cyan(), pnl_colored);
 
     // Show data points count
     if let Some(points) = data.get("data").and_then(|v| v.as_array()) {
@@ -353,10 +360,21 @@ pub fn print_trades_table(data: &serde_json::Value) -> Result<()> {
                 })
                 .unwrap_or_else(|| "-".to_string());
 
+            let side_upper = side.to_uppercase();
+            let side_colored = match side_upper.as_str() {
+                "BUY" => side_upper.green().to_string(),
+                "SELL" => side_upper.red().to_string(),
+                _ => side_upper,
+            };
+            let outcome_colored = match outcome.as_str() {
+                "YES" => outcome.green().to_string(),
+                "NO" => outcome.red().to_string(),
+                _ => outcome,
+            };
             TradeRow {
                 market: truncate_title(market_title, 40),
-                side: side.to_uppercase(),
-                outcome,
+                side: side_colored,
+                outcome: outcome_colored,
                 price,
                 amount,
                 time,
@@ -483,8 +501,8 @@ pub fn print_points_summary(data: &serde_json::Value) -> Result<()> {
         return Ok(());
     }
 
-    println!("Points Breakdown");
-    println!("─────────────────────────");
+    println!("{}", "Points Breakdown".cyan().bold());
+    println!("{}", "─────────────────────────".dimmed());
 
     // Try to extract known fields
     if let Some(obj) = data.as_object() {
@@ -538,8 +556,8 @@ pub fn print_allowance_summary(data: &serde_json::Value) -> Result<()> {
         return Ok(());
     }
 
-    println!("Trading Allowance");
-    println!("─────────────────────────");
+    println!("{}", "Trading Allowance".cyan().bold());
+    println!("{}", "─────────────────────────".dimmed());
 
     let trading_type = data
         .get("type")
@@ -579,11 +597,11 @@ pub fn print_allowance_summary(data: &serde_json::Value) -> Result<()> {
         .and_then(|v| v.as_str())
         .unwrap_or("-");
 
-    println!("Type:           {}", trading_type.to_uppercase());
-    println!("Allowance:      {}", allowance_display);
-    println!("Sufficient:     {}", has_min);
-    println!("Spender:        {}", truncate_address(spender));
-    println!("Your Address:   {}", truncate_address(checked));
+    println!("{}           {}", "Type:".cyan(), trading_type.to_uppercase());
+    println!("{}      {}", "Allowance:".cyan(), allowance_display.bold());
+    println!("{}     {}", "Sufficient:".cyan(), has_min);
+    println!("{}        {}", "Spender:".cyan(), truncate_address(spender).dimmed());
+    println!("{}   {}", "Your Address:".cyan(), truncate_address(checked).dimmed());
 
     Ok(())
 }
@@ -635,6 +653,25 @@ fn camel_to_title(s: &str) -> String {
         }
     }
     result
+}
+
+fn color_pnl_raw(raw: i64) -> String {
+    let formatted = raw_to_usdc(&raw.to_string());
+    if raw > 0 {
+        formatted.green().to_string()
+    } else if raw < 0 {
+        formatted.red().to_string()
+    } else {
+        formatted.dimmed().to_string()
+    }
+}
+
+fn color_status(status: &str) -> String {
+    match status.to_uppercase().as_str() {
+        "FUNDED" => status.green().to_string(),
+        "RESOLVED" => status.dimmed().to_string(),
+        _ => status.to_string(),
+    }
 }
 
 fn format_deadline_with_time(d: &str) -> String {

@@ -10,9 +10,24 @@ mod tui;
 
 use anyhow::Result;
 use clap::Parser;
+use colored::Colorize;
 
 use commands::Commands;
 use output::OutputFormat;
+
+const BANNER: &str = r#"
+  _    ___ __  __ ___ _____ _    ___ ___ ___
+ | |  |_ _|  \/  |_ _|_   _| |  | __/ __/ __|
+ | |__ | || |\/| || |  | | | |__| _|\__ \__ \
+ |____|___|_|  |_|___| |_| |____|___|___/___/
+"#;
+
+fn print_banner() {
+    eprintln!("{}", BANNER.cyan().bold());
+    eprintln!("  {}  {}", "Prediction Markets on Base".dimmed(), format!("v{}", env!("CARGO_PKG_VERSION")).dimmed());
+    eprintln!("  {}", "https://limitless.exchange".dimmed().underline());
+    eprintln!();
+}
 
 #[derive(Parser)]
 #[command(name = "limitless", about = "CLI for Limitless Exchange", version)]
@@ -30,21 +45,28 @@ pub struct Cli {
     pub private_key: Option<String>,
 
     #[command(subcommand)]
-    pub command: Commands,
+    pub command: Option<Commands>,
 }
 
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
 
+    if cli.command.is_none() {
+        print_banner();
+        Cli::parse_from(["limitless", "--help"]);
+        return;
+    }
+
     if let Err(e) = execute(cli).await {
-        eprintln!("Error: {:#}", e);
+        eprintln!("{} {:#}", "error:".red().bold(), e);
         std::process::exit(1);
     }
 }
 
 pub async fn execute(cli: Cli) -> Result<()> {
-    match &cli.command {
+    let command = cli.command.expect("command is required");
+    match &command {
         Commands::Markets { command } => {
             commands::markets::execute(command, &cli.output, cli.api_key.as_deref()).await
         }

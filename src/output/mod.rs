@@ -6,6 +6,7 @@ pub mod trading;
 
 use anyhow::Result;
 use clap::ValueEnum;
+use colored::Colorize;
 use rust_decimal::Decimal;
 use serde::Serialize;
 use tabled::settings::object::Columns;
@@ -27,6 +28,40 @@ impl std::fmt::Display for OutputFormat {
     }
 }
 
+pub fn success(msg: &str) -> String {
+    format!("{} {}", "✓".green(), msg.green())
+}
+
+pub fn warn(msg: &str) -> String {
+    format!("{} {}", "⚠".yellow(), msg.yellow())
+}
+
+pub fn label(msg: &str) -> String {
+    msg.cyan().bold().to_string()
+}
+
+pub fn dim(msg: &str) -> String {
+    msg.dimmed().to_string()
+}
+
+pub fn price_green(msg: &str) -> String {
+    msg.green().to_string()
+}
+
+pub fn price_red(msg: &str) -> String {
+    msg.red().to_string()
+}
+
+pub fn pnl_color(value: f64, formatted: &str) -> String {
+    if value > 0.0 {
+        formatted.green().to_string()
+    } else if value < 0.0 {
+        formatted.red().to_string()
+    } else {
+        formatted.dimmed().to_string()
+    }
+}
+
 pub fn print_json<T: Serialize>(data: &T) -> Result<()> {
     let json = serde_json::to_string_pretty(data)?;
     println!("{}", json);
@@ -35,7 +70,7 @@ pub fn print_json<T: Serialize>(data: &T) -> Result<()> {
 
 pub fn print_table<T: Tabled>(rows: &[T]) {
     if rows.is_empty() {
-        println!("No results.");
+        println!("{}", "No results.".dimmed());
         return;
     }
     let table = Table::new(rows).with(Style::rounded()).to_string();
@@ -44,7 +79,7 @@ pub fn print_table<T: Tabled>(rows: &[T]) {
 
 pub fn print_detail_table(rows: Vec<(&str, String)>) {
     if rows.is_empty() {
-        println!("No data.");
+        println!("{}", "No data.".dimmed());
         return;
     }
 
@@ -72,11 +107,12 @@ pub fn print_detail_table(rows: Vec<(&str, String)>) {
 }
 
 pub fn truncate(s: &str, max: usize) -> String {
-    if s.len() <= max {
-        s.to_string()
-    } else {
-        format!("{}...", &s[..max.saturating_sub(3)])
+    if s.chars().count() <= max {
+        return s.to_string();
     }
+    let mut truncated: String = s.chars().take(max.saturating_sub(1)).collect();
+    truncated.push('\u{2026}');
+    truncated
 }
 
 pub fn format_decimal(value: Decimal) -> String {

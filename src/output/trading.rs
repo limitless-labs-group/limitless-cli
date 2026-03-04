@@ -1,3 +1,4 @@
+use colored::Colorize;
 use tabled::Tabled;
 
 use crate::client::trading::{LockedBalance, UserOrder};
@@ -34,19 +35,32 @@ fn format_atomic_size(raw: &Option<String>) -> String {
 pub fn print_user_orders_table(orders: &[UserOrder]) {
     let rows: Vec<UserOrderRow> = orders
         .iter()
-        .map(|o| UserOrderRow {
-            id: truncate(&o.id, 12),
-            side: o.side.clone(),
-            price: o.price.clone(),
-            size: format_atomic_size(&o.original_size),
-            remaining: format_atomic_size(&o.remaining_size),
-            order_type: o.order_type.clone().unwrap_or_else(|| "-".to_string()),
-            status: o.status.clone(),
-            created_at: o
-                .created_at
-                .as_deref()
-                .map(|s| s.split('T').next().unwrap_or(s).to_string())
-                .unwrap_or_else(|| "-".into()),
+        .map(|o| {
+            let side_colored = match o.side.to_uppercase().as_str() {
+                "BUY" => "BUY".green().to_string(),
+                "SELL" => "SELL".red().to_string(),
+                _ => o.side.clone(),
+            };
+            let status_colored = match o.status.to_uppercase().as_str() {
+                "OPEN" | "ACTIVE" => o.status.green().to_string(),
+                "FILLED" | "MATCHED" => o.status.cyan().to_string(),
+                "CANCELLED" | "CANCELED" => o.status.dimmed().to_string(),
+                _ => o.status.clone(),
+            };
+            UserOrderRow {
+                id: truncate(&o.id, 12).dimmed().to_string(),
+                side: side_colored,
+                price: o.price.clone(),
+                size: format_atomic_size(&o.original_size),
+                remaining: format_atomic_size(&o.remaining_size),
+                order_type: o.order_type.clone().unwrap_or_else(|| "-".to_string()),
+                status: status_colored,
+                created_at: o
+                    .created_at
+                    .as_deref()
+                    .map(|s| s.split('T').next().unwrap_or(s).to_string())
+                    .unwrap_or_else(|| "-".into()),
+            }
         })
         .collect();
     print_table(&rows);
@@ -105,8 +119,11 @@ pub fn print_order_created(resp: &serde_json::Value) {
     };
 
     if matched {
-        // ── Matched (filled) order ──
-        let action = if side_num == 0 { "Bought" } else { "Sold" };
+        let action = if side_num == 0 {
+            "Bought".green().bold().to_string()
+        } else {
+            "Sold".red().bold().to_string()
+        };
         println!(
             "\n  {} {:.6} shares at {:.4} USDC/share\n",
             action, shares_filled, avg_price
@@ -135,8 +152,7 @@ pub fn print_order_created(resp: &serde_json::Value) {
 
         print_detail_table(rows);
     } else {
-        // ── Unmatched (resting on book) ──
-        println!("\n  Order OPEN (resting on book)\n");
+        println!("\n  {} {}\n", "Order OPEN".yellow().bold(), "(resting on book)".dimmed());
 
         let maker_amount = order["makerAmount"].as_u64().unwrap_or(0) as f64 / 1_000_000.0;
 
@@ -182,6 +198,6 @@ pub fn print_locked_balance(balance: &LockedBalance) {
         .unwrap_or("0");
     let count = balance.order_count.unwrap_or(0);
     let currency = balance.currency.as_deref().unwrap_or("USDC");
-    println!("Locked: {} {}", formatted, currency);
-    println!("Open orders: {}", count);
+    println!("{} {} {}", "Locked:".cyan(), formatted.bold(), currency);
+    println!("{} {}", "Open orders:".cyan(), count.to_string().bold());
 }
