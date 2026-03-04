@@ -22,7 +22,7 @@ struct MarketRow {
 fn format_price(price: Option<f64>) -> String {
     match price {
         Some(p) => format!("${:.2}", p),
-        None => "-".to_string(),
+        None => "—".to_string(),
     }
 }
 
@@ -188,9 +188,9 @@ pub fn print_slugs_table(slugs: &[MarketSlug]) {
         .iter()
         .map(|s| SlugRow {
             slug: s.slug.clone(),
-            ticker: s.ticker.clone().unwrap_or_else(|| "-".to_string()),
-            strike: s.strike_price.clone().unwrap_or_else(|| "-".to_string()),
-            deadline: s.deadline.clone().unwrap_or_else(|| "-".to_string()),
+            ticker: s.ticker.clone().unwrap_or_else(|| "—".to_string()),
+            strike: s.strike_price.clone().unwrap_or_else(|| "—".to_string()),
+            deadline: s.deadline.clone().unwrap_or_else(|| "—".to_string()),
         })
         .collect();
     print_table(&rows);

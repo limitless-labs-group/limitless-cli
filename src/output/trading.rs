@@ -29,7 +29,7 @@ fn format_atomic_size(raw: &Option<String>) -> String {
     raw.as_deref()
         .and_then(|s| s.parse::<f64>().ok())
         .map(|v| format!("{:.2}", v / 1_000_000.0))
-        .unwrap_or_else(|| "-".into())
+        .unwrap_or_else(|| "—".into())
 }
 
 pub fn print_user_orders_table(orders: &[UserOrder]) {
@@ -53,13 +53,13 @@ pub fn print_user_orders_table(orders: &[UserOrder]) {
                 price: o.price.clone(),
                 size: format_atomic_size(&o.original_size),
                 remaining: format_atomic_size(&o.remaining_size),
-                order_type: o.order_type.clone().unwrap_or_else(|| "-".to_string()),
+                order_type: o.order_type.clone().unwrap_or_else(|| "—".to_string()),
                 status: status_colored,
                 created_at: o
                     .created_at
                     .as_deref()
                     .map(|s| s.split('T').next().unwrap_or(s).to_string())
-                    .unwrap_or_else(|| "-".into()),
+                    .unwrap_or_else(|| "—".into()),
             }
         })
         .collect();
@@ -90,7 +90,7 @@ pub fn print_order_created(resp: &serde_json::Value) {
 
     let market_title = order["market"]["title"]
         .as_str()
-        .unwrap_or("-");
+        .unwrap_or("—");
 
     let order_type = order["orderType"]
         .as_str()
@@ -100,11 +100,11 @@ pub fn print_order_created(resp: &serde_json::Value) {
 
     let order_id = order["id"]
         .as_str()
-        .unwrap_or("-");
+        .unwrap_or("—");
 
     let created_at = order["createdAt"]
         .as_str()
-        .unwrap_or("-");
+        .unwrap_or("—");
 
     // Parse execution data
     let totals = &exec["totalsRaw"];
@@ -170,7 +170,7 @@ pub fn print_order_created(resp: &serde_json::Value) {
             let price = order["price"]
                 .as_f64()
                 .map(|p| format!("{:.4}", p))
-                .unwrap_or_else(|| "-".into());
+                .unwrap_or_else(|| "—".into());
             let taker_amount =
                 order["takerAmount"].as_u64().unwrap_or(0) as f64 / 1_000_000.0;
             rows.push(("Price", format!("{} USDC", price)));

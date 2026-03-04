@@ -26,7 +26,7 @@ pub fn print_public_volume(data: &serde_json::Value) -> Result<()> {
     if let Some(obj) = data.as_object() {
         for (key, value) in obj {
             let val_str = match value {
-                v if v.is_string() => v.as_str().unwrap_or("-").to_string(),
+                v if v.is_string() => v.as_str().unwrap_or("—").to_string(),
                 v if v.is_f64() => format!("{:.2}", v.as_f64().unwrap_or(0.0)),
                 v if v.is_i64() => v.as_i64().unwrap_or(0).to_string(),
                 v if v.is_u64() => v.as_u64().unwrap_or(0).to_string(),

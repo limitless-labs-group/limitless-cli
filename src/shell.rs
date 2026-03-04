@@ -1,4 +1,5 @@
 use anyhow::Result;
+use colored::Colorize;
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
 
@@ -11,8 +12,11 @@ pub async fn run_shell(
     private_key: Option<String>,
 ) -> Result<()> {
     let mut rl = DefaultEditor::new()?;
-    println!("Limitless Exchange Interactive Shell");
-    println!("Type 'help' for commands, 'exit' to quit\n");
+
+    println!();
+    println!("  {}", "Limitless CLI · Interactive Shell".cyan().bold());
+    println!("  Type 'help' for commands, 'exit' to quit.");
+    println!();
 
     loop {
         match rl.readline("limitless> ") {
@@ -28,8 +32,18 @@ pub async fn run_shell(
                 let _ = rl.add_history_entry(line);
 
                 let args = split_args(line);
-                let mut full_args = vec!["limitless".to_string()];
+                let cmd = args.first().map(|s| s.as_str()).unwrap_or("");
 
+                if cmd == "shell" {
+                    println!("Already in shell mode.");
+                    continue;
+                }
+                if cmd == "setup" {
+                    println!("Run 'limitless setup' outside the shell.");
+                    continue;
+                }
+
+                let mut full_args = vec!["limitless".to_string()];
                 full_args.push("--output".into());
                 full_args.push(output.to_string());
                 if let Some(ref key) = api_key {
@@ -40,18 +54,11 @@ pub async fn run_shell(
                     full_args.push("--private-key".into());
                     full_args.push(pk.clone());
                 }
-
                 full_args.extend(args);
 
                 match <Cli as clap::Parser>::try_parse_from(&full_args) {
                     Ok(cli) => {
-                        if matches!(
-                            cli.command,
-                            Some(crate::commands::Commands::Shell)
-                                | Some(crate::commands::Commands::Setup)
-                                | None
-                        ) {
-                            println!("Cannot run this command inside the shell.");
+                        if cli.command.is_none() {
                             continue;
                         }
                         if let Err(e) = Box::pin(crate::execute(cli)).await {
@@ -63,7 +70,7 @@ pub async fn run_shell(
                                     );
                                 }
                                 OutputFormat::Table => {
-                                    eprintln!("Error: {:#}", e);
+                                    eprintln!("{} {:#}", "error:".red().bold(), e);
                                 }
                             }
                         }
@@ -75,9 +82,14 @@ pub async fn run_shell(
             }
             Err(ReadlineError::Interrupted) => continue,
             Err(ReadlineError::Eof) => break,
-            Err(e) => return Err(e.into()),
+            Err(e) => {
+                eprintln!("{} {}", "error:".red().bold(), e);
+                break;
+            }
         }
     }
+
+    println!("Goodbye!");
     Ok(())
 }
 

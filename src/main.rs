@@ -15,17 +15,26 @@ use colored::Colorize;
 use commands::Commands;
 use output::OutputFormat;
 
-const BANNER: &str = r#"
-  _    ___ __  __ ___ _____ _    ___ ___ ___
- | |  |_ _|  \/  |_ _|_   _| |  | __/ __/ __|
- | |__ | || |\/| || |  | | | |__| _|\__ \__ \
- |____|___|_|  |_|___| |_| |____|___|___/___/
-"#;
-
 fn print_banner() {
-    eprintln!("{}", BANNER.cyan().bold());
-    eprintln!("  {}  {}", "Prediction Markets on Base".dimmed(), format!("v{}", env!("CARGO_PKG_VERSION")).dimmed());
-    eprintln!("  {}", "https://limitless.exchange".dimmed().underline());
+    let g = |s: &str| s.truecolor(197, 232, 77);
+
+    eprintln!();
+    eprintln!("{}", g(r"      \  |"));
+    eprintln!("{}", g(r"       \ | /"));
+    eprintln!("{}", g(r"        \|/"));
+    eprintln!("{}  {}",
+        g("  \u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}*\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}"),
+        "L I M I T L E S S".truecolor(197, 232, 77).bold(),
+    );
+    eprintln!("{}", g(r"        / \"));
+    eprintln!("{}", g(r"       /   \"));
+    eprintln!("{}", g(r"      /"));
+    eprintln!();
+    eprintln!("    {}  {}",
+        "Prediction Markets on Base".dimmed(),
+        format!("v{}", env!("CARGO_PKG_VERSION")).dimmed(),
+    );
+    eprintln!("    {}", "https://limitless.exchange".dimmed().underline());
     eprintln!();
 }
 
@@ -50,13 +59,18 @@ pub struct Cli {
 
 #[tokio::main]
 async fn main() {
-    let cli = Cli::parse();
-
-    if cli.command.is_none() {
+    // Show banner before --help / -h
+    let args: Vec<String> = std::env::args().collect();
+    let wants_help = args.len() == 2 && (args[1] == "--help" || args[1] == "-h");
+    if args.len() == 1 || wants_help {
         print_banner();
+    }
+    if args.len() == 1 {
         Cli::parse_from(["limitless", "--help"]);
         return;
     }
+
+    let cli = Cli::parse();
 
     if let Err(e) = execute(cli).await {
         eprintln!("{} {:#}", "error:".red().bold(), e);

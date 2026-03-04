@@ -101,7 +101,8 @@ pub fn print_detail_table(rows: Vec<(&str, String)>) {
 
     let table = Table::new(&table_rows)
         .with(Style::rounded())
-        .with(Modify::new(Columns::single(1)).with(Width::wrap(80).keep_words(true)))
+        .with(Modify::new(Columns::first()).with(Width::wrap(20).keep_words(true)))
+        .with(Modify::new(Columns::last()).with(Width::wrap(80).keep_words(true)))
         .to_string();
     println!("{}", table);
 }
@@ -131,13 +132,13 @@ pub fn format_decimal(value: Decimal) -> String {
 pub fn format_optional_decimal(value: &Option<Decimal>) -> String {
     match value {
         Some(v) => format_decimal(*v),
-        None => "-".to_string(),
+        None => "—".to_string(),
     }
 }
 
 pub fn format_optional_price(value: &Option<Decimal>) -> String {
     match value {
         Some(v) => format!("${:.2}", v),
-        None => "-".to_string(),
+        None => "—".to_string(),
     }
 }

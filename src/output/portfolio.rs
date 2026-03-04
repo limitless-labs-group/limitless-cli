@@ -69,7 +69,7 @@ pub fn print_positions_table(data: &serde_json::Value, status_filter: &str) -> R
             let status = market
                 .get("status")
                 .and_then(|v| v.as_str())
-                .unwrap_or("-");
+                .unwrap_or("—");
 
             // Apply status filter
             match status_filter.to_lowercase().as_str() {
@@ -90,7 +90,7 @@ pub fn print_positions_table(data: &serde_json::Value, status_filter: &str) -> R
                 .get("expirationDate")
                 .or_else(|| market.get("deadline"))
                 .and_then(|v| v.as_str())
-                .unwrap_or("-");
+                .unwrap_or("—");
 
             let tokens_balance = pos.get("tokensBalance").unwrap_or(&serde_json::Value::Null);
             let positions = pos.get("positions").unwrap_or(&serde_json::Value::Null);
@@ -183,13 +183,13 @@ pub fn print_positions_table(data: &serde_json::Value, status_filter: &str) -> R
             rows.push(PositionRow {
                 market: truncate_title(title, 45),
                 status: status.to_string(),
-                side: "-".to_string(),
-                shares: "-".to_string(),
-                avg_price: "-".to_string(),
-                market_value: "-".to_string(),
-                cost: "-".to_string(),
-                pnl: "-".to_string(),
-                deadline: "-".to_string(),
+                side: "—".to_string(),
+                shares: "—".to_string(),
+                avg_price: "—".to_string(),
+                market_value: "—".to_string(),
+                cost: "—".to_string(),
+                pnl: "—".to_string(),
+                deadline: "—".to_string(),
             });
         }
     }
@@ -308,7 +308,7 @@ pub fn print_trades_table(data: &serde_json::Value) -> Result<()> {
                 .or_else(|| t.get("type"))
                 .or_else(|| t.get("strategy"))
                 .and_then(|v| v.as_str())
-                .unwrap_or("-");
+                .unwrap_or("—");
 
             let outcome_idx = t.get("outcomeIndex").and_then(|v| v.as_u64());
             let outcome = match outcome_idx {
@@ -317,7 +317,7 @@ pub fn print_trades_table(data: &serde_json::Value) -> Result<()> {
                 _ => t
                     .get("outcome")
                     .and_then(|v| v.as_str())
-                    .unwrap_or("-")
+                    .unwrap_or("—")
                     .to_string(),
             };
 
@@ -326,7 +326,7 @@ pub fn print_trades_table(data: &serde_json::Value) -> Result<()> {
                 .or_else(|| t.get("outcomeTokenPrice"))
                 .and_then(|v| v.as_f64())
                 .map(|p| format!("${:.4}", p))
-                .unwrap_or_else(|| "-".to_string());
+                .unwrap_or_else(|| "—".to_string());
 
             let amount = t
                 .get("amount")
@@ -339,7 +339,7 @@ pub fn print_trades_table(data: &serde_json::Value) -> Result<()> {
                         Err(_) => a.to_string(),
                     }
                 })
-                .unwrap_or_else(|| "-".to_string());
+                .unwrap_or_else(|| "—".to_string());
 
             let time = t
                 .get("timestamp")
@@ -355,10 +355,10 @@ pub fn print_trades_table(data: &serde_json::Value) -> Result<()> {
                     } else if let Some(s) = v.as_str() {
                         format_deadline_with_time(s)
                     } else {
-                        "-".to_string()
+                        "—".to_string()
                     }
                 })
-                .unwrap_or_else(|| "-".to_string());
+                .unwrap_or_else(|| "—".to_string());
 
             let side_upper = side.to_uppercase();
             let side_colored = match side_upper.as_str() {
@@ -437,26 +437,26 @@ pub fn print_history_table(data: &serde_json::Value) -> Result<()> {
             let outcome = match outcome_idx {
                 Some(0) => "YES".to_string(),
                 Some(1) => "NO".to_string(),
-                _ => "-".to_string(),
+                _ => "—".to_string(),
             };
 
             let shares = e
                 .get("outcomeTokenAmount")
                 .and_then(|v| v.as_str())
                 .map(|a| raw_to_shares(a))
-                .unwrap_or_else(|| "-".to_string());
+                .unwrap_or_else(|| "—".to_string());
 
             let price = e
                 .get("outcomeTokenPrice")
                 .and_then(|v| v.as_f64())
                 .map(|p| format!("${:.4}", p))
-                .unwrap_or_else(|| "-".to_string());
+                .unwrap_or_else(|| "—".to_string());
 
             let collateral = e
                 .get("collateralAmount")
                 .and_then(|v| v.as_str())
                 .map(|a| raw_to_usdc(a))
-                .unwrap_or_else(|| "-".to_string());
+                .unwrap_or_else(|| "—".to_string());
 
             let time = e
                 .get("blockTimestamp")
@@ -467,7 +467,7 @@ pub fn print_history_table(data: &serde_json::Value) -> Result<()> {
                         .map(|dt| dt.format("%b %d, %H:%M UTC").to_string())
                         .unwrap_or_else(|| ts.to_string())
                 })
-                .unwrap_or_else(|| "-".to_string());
+                .unwrap_or_else(|| "—".to_string());
 
             HistoryRow {
                 strategy: strategy.to_string(),
@@ -527,15 +527,15 @@ pub fn print_points_summary(data: &serde_json::Value) -> Result<()> {
                 continue;
             }
             let val_str = match value {
-                v if v.is_string() => v.as_str().unwrap_or("-").to_string(),
+                v if v.is_string() => v.as_str().unwrap_or("—").to_string(),
                 v if v.is_f64() => format!("{:.2}", v.as_f64().unwrap_or(0.0)),
                 v if v.is_i64() => v.as_i64().unwrap_or(0).to_string(),
                 v if v.is_boolean() => v.as_bool().unwrap_or(false).to_string(),
                 v if v.is_object() || v.is_array() => {
                     // For nested objects, show a summary
-                    serde_json::to_string(v).unwrap_or_else(|_| "-".to_string())
+                    serde_json::to_string(v).unwrap_or_else(|_| "—".to_string())
                 }
-                _ => "-".to_string(),
+                _ => "—".to_string(),
             };
             // Convert camelCase to readable name
             let label = camel_to_title(key);
@@ -562,12 +562,12 @@ pub fn print_allowance_summary(data: &serde_json::Value) -> Result<()> {
     let trading_type = data
         .get("type")
         .and_then(|v| v.as_str())
-        .unwrap_or("-");
+        .unwrap_or("—");
     let has_min = data
         .get("hasMinimumAllowance")
         .and_then(|v| v.as_bool())
         .map(|b| if b { "✓ Yes" } else { "✗ No" })
-        .unwrap_or("-");
+        .unwrap_or("—");
 
     let allowance_raw = data
         .get("allowance")
@@ -591,11 +591,11 @@ pub fn print_allowance_summary(data: &serde_json::Value) -> Result<()> {
     let spender = data
         .get("spender")
         .and_then(|v| v.as_str())
-        .unwrap_or("-");
+        .unwrap_or("—");
     let checked = data
         .get("checkedAddress")
         .and_then(|v| v.as_str())
-        .unwrap_or("-");
+        .unwrap_or("—");
 
     println!("{}           {}", "Type:".cyan(), trading_type.to_uppercase());
     println!("{}      {}", "Allowance:".cyan(), allowance_display.bold());
@@ -623,7 +623,7 @@ fn truncate_title(s: &str, max: usize) -> String {
 
 fn format_fill_price(raw: &str) -> String {
     match raw.parse::<i64>() {
-        Ok(v) if v == 0 => "-".to_string(),
+        Ok(v) if v == 0 => "—".to_string(),
         Ok(v) => {
             let price = v as f64 / 1_000_000.0;
             format!("${:.4}", price)
@@ -676,7 +676,7 @@ fn color_status(status: &str) -> String {
 
 fn format_deadline_with_time(d: &str) -> String {
     if d == "-" || d.is_empty() {
-        return "-".to_string();
+        return "—".to_string();
     }
     // Parse ISO date "2026-04-01T02:59:00.000Z" → "Apr 01, 02:59 UTC"
     if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(d) {

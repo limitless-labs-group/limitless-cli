@@ -186,12 +186,12 @@ pub fn print_historical_prices(series: &[HistoricalPriceSeries]) {
             let price_str = p
                 .price
                 .map(|v| format!("${:.4}", v))
-                .unwrap_or_else(|| "-".to_string());
+                .unwrap_or_else(|| "—".to_string());
             let time_str = p
                 .timestamp
                 .as_deref()
                 .map(format_event_time)
-                .unwrap_or_else(|| "-".to_string());
+                .unwrap_or_else(|| "—".to_string());
             rows.push(PriceRow {
                 token: token_name.to_string(),
                 price: price_str,
@@ -240,25 +240,25 @@ pub fn print_events_table(resp: &MarketEventsResponse) {
             let side = match e.side {
                 Some(0) => "BUY".green().to_string(),
                 Some(1) => "SELL".red().to_string(),
-                _ => "-".to_string(),
+                _ => "—".to_string(),
             };
 
             let price = e
                 .price
                 .map(|p| format!("${:.4}", p))
-                .unwrap_or_else(|| "-".to_string());
+                .unwrap_or_else(|| "—".to_string());
 
             let size = e
                 .matched_size
                 .as_deref()
                 .map(format_raw_usdc)
-                .unwrap_or_else(|| "-".to_string());
+                .unwrap_or_else(|| "—".to_string());
 
             let cost = e
                 .taker_amount
                 .as_deref()
                 .map(format_raw_usdc)
-                .unwrap_or_else(|| "-".to_string());
+                .unwrap_or_else(|| "—".to_string());
 
             let trader = e
                 .profile
@@ -270,13 +270,13 @@ pub fn print_events_table(resp: &MarketEventsResponse) {
                         .or(p.account.as_deref())
                 })
                 .map(truncate_addr)
-                .unwrap_or_else(|| "-".to_string());
+                .unwrap_or_else(|| "—".to_string());
 
             let time = e
                 .created_at
                 .as_deref()
                 .map(format_event_time)
-                .unwrap_or_else(|| "-".to_string());
+                .unwrap_or_else(|| "—".to_string());
 
             EventRow {
                 side,
