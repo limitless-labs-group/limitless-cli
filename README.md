@@ -2,7 +2,7 @@
 
 Command-line interface for [Limitless Exchange](https://limitless.exchange) — browse prediction markets, place orders, manage positions, and interact with on-chain contracts on Base.
 
-> **Limitless Exchange docs**: [docs.limitless.exchange](https://docs.limitless.exchange) &nbsp;|&nbsp; **API reference**: [limitless.mintlify.app](https://limitless.mintlify.app)
+> **Limitless Exchange docs**: [docs.limitless.exchange](https://docs.limitless.exchange) &nbsp;|&nbsp; **API reference**: [docs.limitless.exchange/api-reference](https://docs.limitless.exchange/api-reference/introduction)
 
 ## Installation
 
@@ -173,7 +173,7 @@ limitless trading cancel-all <slug>                 # Cancel all for market
   - **Buy**: `--size` = USDC amount to spend
   - **Sell**: `--size` = number of shares to sell
 
-Order signing uses **EIP-712** (domain: "Limitless CTF Exchange", chain ID 8453). Both API key and private key are required. See the [Limitless API docs](https://limitless.mintlify.app/api-reference/trading/create-order) for full details.
+Order signing uses **EIP-712** (domain: "Limitless CTF Exchange", chain ID 8453). Both API key and private key are required. See the [Limitless API docs](https://docs.limitless.exchange/api-reference/trading/create-order) for full details.
 
 ### `portfolio` — View your positions and PnL
 
@@ -265,7 +265,7 @@ limitless portfolio positions -o json               # Works after any subcommand
 
 - [Limitless Exchange](https://limitless.exchange) — the platform
 - [Documentation](https://docs.limitless.exchange) — guides and concepts
-- [API Reference](https://limitless.mintlify.app) — REST API endpoints
+- [API Reference](https://docs.limitless.exchange/api-reference/introduction) — REST API endpoints
 - [TypeScript SDK](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk) — official TS SDK
 
 ## License
